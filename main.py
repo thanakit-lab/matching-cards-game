@@ -217,7 +217,27 @@ def main():
     font_match = pygame.font.Font(None, 40)
     num_pairs = (ROWS * COLS) // 2
 
+    # Timer setup
+    start_ticks = pygame.time.get_ticks()
+    timer_font = pygame.font.Font(None, 44)
+    game_over = False
+    paused_time = 0
+    pause_start = None
+
     while running:
+        if not paused and not game_over:
+            # Timer logic
+            if pause_start is not None:
+                # Add paused duration to paused_time
+                paused_time += pygame.time.get_ticks() - pause_start
+                pause_start = None
+            seconds_left = 60 - ((pygame.time.get_ticks() - start_ticks - paused_time) // 1000)
+            if seconds_left <= 0:
+                seconds_left = 0
+                game_over = True
+        elif paused and pause_start is None:
+            pause_start = pygame.time.get_ticks()
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -228,7 +248,7 @@ def main():
                     else:
                         screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.FULLSCREEN)
                     fullscreen = not fullscreen
-            elif event.type == pygame.MOUSEBUTTONDOWN:
+            elif event.type == pygame.MOUSEBUTTONDOWN and not game_over:
                 pos = pygame.mouse.get_pos()
                 pause_rect, exit_rect = draw_buttons(screen, paused)
                 if pause_rect.collidepoint(pos):
@@ -257,7 +277,7 @@ def main():
             clock.tick(FPS)
             continue
         # Handle card matching logic
-        if len(revealed_cards) == 2:
+        if len(revealed_cards) == 2 and not game_over:
             now = pygame.time.get_ticks()
             if now - last_flip_time > flip_delay:
                 c1, c2 = revealed_cards
@@ -277,9 +297,12 @@ def main():
         matches = sum(1 for c in cards if c.matched) // 2
         match_text = font_match.render(f"Matches: {matches} / {num_pairs}", True, (30, 30, 120))
         screen.blit(match_text, (30, 20))
+        # Draw timer
+        timer_text = timer_font.render(f"Time: {seconds_left:02d}s", True, (180, 30, 30))
+        screen.blit(timer_text, (30, 60))
         pygame.display.flip()
         # Check for win condition
-        if all(card.matched for card in cards):
+        if all(card.matched for card in cards) and not game_over:
             overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
             overlay.fill(WHITE)
             overlay.set_alpha(200)
@@ -294,6 +317,31 @@ def main():
             screen.blit(text, text_rect)
             font_small = pygame.font.Font(None, 36)
             exit_text = font_small.render("Press ESC to exit", True, BLACK)
+            exit_rect = exit_text.get_rect(center=(WINDOW_WIDTH/2, WINDOW_HEIGHT/2 + 50))
+            screen.blit(exit_text, exit_rect)
+            pygame.display.flip()
+            waiting = True
+            while waiting:
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        waiting = False
+                        running = False
+                    elif event.type == pygame.KEYDOWN:
+                        if event.key == pygame.K_ESCAPE:
+                            waiting = False
+                            running = False
+        # Game over screen
+        if game_over:
+            overlay = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
+            overlay.fill((0, 0, 0))
+            overlay.set_alpha(180)
+            screen.blit(overlay, (0, 0))
+            font = pygame.font.Font(None, 74)
+            text = font.render("Game Over", True, (255, 0, 0))
+            text_rect = text.get_rect(center=(WINDOW_WIDTH/2, WINDOW_HEIGHT/2))
+            screen.blit(text, text_rect)
+            font_small = pygame.font.Font(None, 36)
+            exit_text = font_small.render("Press ESC to exit", True, WHITE)
             exit_rect = exit_text.get_rect(center=(WINDOW_WIDTH/2, WINDOW_HEIGHT/2 + 50))
             screen.blit(exit_text, exit_rect)
             pygame.display.flip()
