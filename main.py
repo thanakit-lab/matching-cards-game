@@ -162,9 +162,12 @@ class Card:
 def create_board():
     card_back, card_faces = load_card_images()
     cards = []
-    # Use 16 unique cards (A-8 of two suits), two of each for pairs
-    values = list(range(16)) * 2  # 16 pairs = 32 cards
-    random.shuffle(values)
+    num_pairs = (ROWS * COLS) // 2
+    # Use as many unique cards as needed for pairs, cycling through card_faces if needed
+    values = list(range(len(card_faces)))
+    pair_values = (values * ((num_pairs + len(values) - 1) // len(values)))[:num_pairs]
+    all_values = pair_values * 2  # two of each for pairs
+    random.shuffle(all_values)
     # Calculate grid size and center offset
     grid_width = COLS * (CARD_WIDTH + CARD_MARGIN) - CARD_MARGIN
     grid_height = ROWS * (CARD_HEIGHT + CARD_MARGIN) - CARD_MARGIN
@@ -175,7 +178,7 @@ def create_board():
             x = offset_x + col * (CARD_WIDTH + CARD_MARGIN)
             y = offset_y + row * (CARD_HEIGHT + CARD_MARGIN)
             idx = row * COLS + col
-            value = values[idx]
+            value = all_values[idx]
             card = Card(x, y, value, card_back, card_faces[value])
             cards.append(card)
     return cards
@@ -210,6 +213,9 @@ def main():
     revealed_cards = []
     last_flip_time = 0
     flip_delay = 800  # milliseconds
+
+    font_match = pygame.font.Font(None, 40)
+    num_pairs = (ROWS * COLS) // 2
 
     while running:
         for event in pygame.event.get():
@@ -267,6 +273,10 @@ def main():
         for card in cards:
             card.draw()
         pause_rect, exit_rect = draw_buttons(screen, paused)
+        # Draw number of correct matches
+        matches = sum(1 for c in cards if c.matched) // 2
+        match_text = font_match.render(f"Matches: {matches} / {num_pairs}", True, (30, 30, 120))
+        screen.blit(match_text, (30, 20))
         pygame.display.flip()
         # Check for win condition
         if all(card.matched for card in cards):
@@ -300,5 +310,25 @@ def main():
         clock.tick(FPS)
     pygame.quit()
 
+def get_grid_size():
+    import tkinter as tk
+    from tkinter import simpledialog, messagebox
+    root = tk.Tk()
+    root.withdraw()
+    while True:
+        try:
+            rows = simpledialog.askinteger("Grid Size", "Enter number of rows:", minvalue=2, maxvalue=10)
+            cols = simpledialog.askinteger("Grid Size", "Enter number of columns:", minvalue=2, maxvalue=16)
+            if rows is None or cols is None:
+                messagebox.showinfo("Info", "Game cancelled.")
+                exit()
+            if (rows * cols) % 2 != 0:
+                messagebox.showerror("Error", "The total number of cards (rows x columns) must be even.")
+            else:
+                return rows, cols
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+
 if __name__ == "__main__":
+    ROWS, COLS = get_grid_size()
     main()
